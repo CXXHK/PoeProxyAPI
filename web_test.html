@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>Poe Proxy HTTP API 测试页面</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 600px; margin: 40px auto; background: #f7f7f7; }
+        h2 { text-align: center; }
+        .form-group { margin-bottom: 16px; }
+        label { display: block; margin-bottom: 4px; font-weight: bold; }
+        input, select, textarea { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
+        button { padding: 10px 20px; background: #007bff; color: #fff; border: none; border-radius: 4px; cursor: pointer; }
+        button:disabled { background: #aaa; }
+        .result { background: #fff; border: 1px solid #ddd; border-radius: 4px; padding: 12px; margin-top: 16px; min-height: 60px; }
+        .row { display: flex; gap: 8px; }
+        .row > * { flex: 1; }
+    </style>
+</head>
+<body>
+    <h2>Poe Proxy HTTP API 测试页面</h2>
+    <div class="form-group">
+        <label>API 地址</label>
+        <input id="api-url" value="http://localhost:8000" />
+    </div>
+    <div class="form-group">
+        <label>选择模型</label>
+        <select id="model"></select>
+    </div>
+    <div class="form-group">
+        <label>问题（Prompt）</label>
+        <textarea id="prompt" rows="4" placeholder="请输入你的问题..."></textarea>
+    </div>
+    <div class="form-group row">
+        <div>
+            <label>会话ID（可选）</label>
+            <input id="session-id" placeholder="留空则自动创建新会话" />
+        </div>
+        <div style="align-self: flex-end;">
+            <button id="clear-session" type="button">清空会话ID</button>
+        </div>
+    </div>
+    <div class="form-group">
+        <button id="send-btn">发送</button>
+    </div>
+    <div class="form-group">
+        <label>返回结果</label>
+        <div class="result" id="result"></div>
+    </div>
+    <script>
+        // 支持的POE模型列表
+        const models = [
+            { value: "Assistant", label: "Assistant" },
+            { value: "GPT-4.1", label: "GPT-4.1" },
+            { value: "GPT-4.1-nano", label: "GPT-4.1-nano" },
+            { value: "GPT-4o", label: "GPT-4o" },
+            { value: "GPT-4o-mini", label: "GPT-4o-mini" },
+            { value: "GPT-3.5-Turbo", label: "GPT-3.5-Turbo" },
+            { value: "Claude-3-Opus-200k", label: "Claude-3-Opus-200k" },
+            { value: "Claude-3-Sonnet-7k", label: "Claude-3-Sonnet-7k" },
+            { value: "Claude-3-Haiku-3k", label: "Claude-3-Haiku-3k" },
+            { value: "Gemini-Pro", label: "Gemini-Pro" },
+            { value: "o3", label: "o3" },
+            { value: "Llama-3-70b", label: "Llama-3-70b" },
+            { value: "Llama-3-8b", label: "Llama-3-8b" },
+            { value: "Mistral-7B", label: "Mistral-7B" },
+            { value: "Mistral-Large", label: "Mistral-Large" },
+            { value: "Perplexity-Online", label: "Perplexity-Online" },
+            { value: "Qwen3-235B-A22B", label: "Qwen3-235B-A22B" },
+        ];
+
+        // 动态渲染模型下拉框
+        const modelSelect = document.getElementById('model');
+        models.forEach(m => {
+            const opt = document.createElement('option');
+            opt.value = m.value;
+            opt.textContent = m.label;
+            modelSelect.appendChild(opt);
+        });
+
+        const apiUrlInput = document.getElementById('api-url');
+        const promptInput = document.getElementById('prompt');
+        const sessionIdInput = document.getElementById('session-id');
+        const sendBtn = document.getElementById('send-btn');
+        const resultDiv = document.getElementById('result');
+        const clearSessionBtn = document.getElementById('clear-session');
+
+        clearSessionBtn.onclick = () => {
+            sessionIdInput.value = '';
+            resultDiv.textContent = '会话ID已清空';
+        };
+
+        sendBtn.onclick = async () => {
+            const apiUrl = apiUrlInput.value.trim().replace(/\/$/, '');
+            const model = modelSelect.value;
+            const prompt = promptInput.value.trim();
+            const sessionId = sessionIdInput.value.trim();
+            if (!prompt) {
+                resultDiv.textContent = '请输入问题';
+                return;
+            }
+            sendBtn.disabled = true;
+            resultDiv.textContent = '请求中...';
+            try {
+                const params = new URLSearchParams({
+                    bot: model,
+                    prompt: prompt
+                });
+                if (sessionId) params.append('session_id', sessionId);
+                const resp = await fetch(`${apiUrl}/ask_poe?${params.toString()}`);
+                const data = await resp.json();
+                if (resp.ok) {
+                    resultDiv.innerHTML = `<b>回复：</b>${data.text ? data.text.replace(/\n/g, '<br>') : ''}<br><b>Session ID：</b>${data.session_id || ''}`;
+                    if (data.session_id) sessionIdInput.value = data.session_id;
+                } else {
+                    resultDiv.textContent = `错误: ${data.message || JSON.stringify(data)}`;
+                }
+            } catch (e) {
+                resultDiv.textContent = '请求失败: ' + e;
+            } finally {
+                sendBtn.disabled = false;
+            }
+        };
+    </script>
+</body>
+</html> 
